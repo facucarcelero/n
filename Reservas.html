@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parrilla Los Nogales - Reservas</title>
+    <link rel="icon" type="image/x-icon" href="./Logo/favicon.ico">
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .logo-font { font-family: 'Lora', serif; }
+        .hidden { display: none; }
+        .action-button i { pointer-events: none; }
+        
+        .modal-base { z-index: 50; }
+        .modal-top-layer { z-index: 60; }
+
+        @media (max-width: 767px) {
+            #admin-panel-container thead { display: none; }
+            #admin-panel-container tbody,
+            #admin-panel-container tr,
+            #admin-panel-container td { display: block; width: 100%; }
+            #admin-panel-container tr { margin-bottom: 1.5rem; border: 1px solid #e5e7eb; border-radius: 0.75rem; background-color: #ffffff; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); overflow: hidden; }
+            #admin-panel-container td { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; text-align: right; border-bottom: 1px solid #f3f4f6; }
+            #admin-panel-container td::before { content: attr(data-label); font-weight: 600; text-align: left; padding-right: 1rem; color: #4b5563; }
+            #admin-panel-container td:last-child { border-bottom: none; }
+            #admin-panel-container .actions-cell { justify-content: center; padding-top: 1rem; padding-bottom: 1rem; }
+            #admin-panel-container .actions-cell::before { display: none; }
+        }
+    </style>
+</head>
+<body class="antialiased text-gray-800">
+
+    <div id="app">
+        <div id="client-view">
+            <div class="min-h-screen p-4 flex flex-col items-center justify-center">
+                
+                <div class="relative w-full max-w-2xl bg-white rounded-2xl shadow-xl p-6 md:p-10">
+
+                    <div class="absolute top-4 left-4 right-4 flex justify-between">
+                        <button id="back-button"
+                                title="Volver a la página anterior"
+                                class="p-2 bg-gray-100 text-gray-600 rounded-full shadow-sm hover:bg-gray-200 transition">
+                            <i class="ph ph-arrow-left text-2xl"></i>
+                        </button>
+
+                        <button id="show-admin-button" title="Acceso Administrador" class="p-2 bg-gray-100 text-gray-600 rounded-full shadow-sm hover:bg-gray-200 transition">
+                            <i class="ph ph-user-gear text-2xl"></i>
+                        </button>
+                    </div>
+
+                    <div class="text-center mb-8 pt-10">
+                        <img src="https://placehold.co/250x60/14532d/ffffff?text=Parrilla+Los+Nogales" alt="Logo" class="w-auto h-12 mx-auto">
+                        <p class="text-lg text-gray-500 mt-4">Sistema de Reservas</p>
+                    </div>
+                    <div id="reservation-form-container"></div>
+                    <div id="client-message-area" class="mt-6 text-center"></div>
+                    <div class="mt-6 text-center">
+                        <button id="show-search-button" class="font-semibold text-green-700 hover:text-green-800">
+                            ¿Ya tienes una reserva? Búscala aquí
+                        </button>
+                    </div>
+                    <div class="mt-8 pt-6 border-t border-gray-200 text-center">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-2">Nuestros Horarios</h3>
+                        <p class="text-gray-600"><span class="font-semibold">Almuerzo:</span> Jueves a Domingo, 12:00-16:00 hs.</p>
+                        <p class="text-gray-600"><span class="font-semibold">Cena:</span> Lunes a Sábado, 20:00-01:00 hs.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="admin-view" class="hidden">
+            <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+                <div class="mb-8 flex items-center justify-between">
+                    <div>
+                        <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Panel de Control</h1>
+                        <p class="text-lg text-green-800 logo-font" style="font-weight:700;">Parrilla Los Nogales</p>
+                    </div>
+                    <button id="exit-admin-button" class="text-sm font-medium bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-lg">Salir del panel</button>
+                </div>
+                <div id="admin-panel-container"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="admin-login-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden modal-base"></div>
+    <div id="search-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden modal-base overflow-y-auto"></div>
+    <div id="deleteConfirmationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden modal-top-layer"></div>
+    <div id="edit-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden modal-top-layer overflow-y-auto"></div>
+
+    <template id="reservation-form-template"><form id="reservationForm" class="space-y-6"><div class="space-y-4"><h3 class="text-lg font-semibold text-gray-800 border-b pb-2">Tus Datos</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label for="name" class="block text-sm font-medium text-gray-700 mb-1">Nombre y Apellido</label><input type="text" id="name" required class="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600"></div><div><label for="phone" class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label><input type="tel" id="phone" required class="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600"></div></div></div><div class="space-y-4 pt-4"><h3 class="text-lg font-semibold text-gray-800 border-b pb-2">Detalles de la Reserva</h3><div class="grid grid-cols-1 md:grid-cols-3 gap-6"><div><label for="date" class="block text-sm font-medium text-gray-700 mb-1">Fecha</label><input type="date" id="date" required class="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600"></div><div><label for="time" class="block text-sm font-medium text-gray-700 mb-1">Hora</label><input type="time" id="time" required class="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600"></div><div><label for="diners" class="block text-sm font-medium text-gray-700 mb-1">Comensales</label><input type="number" id="diners" min="1" value="2" required class="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600"></div></div></div><button type="submit" class="w-full bg-green-700 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-800 focus:outline-none focus:ring-4 focus:ring-green-500 transition-transform transform hover:scale-105 flex items-center justify-center gap-2"><i class="ph ph-calendar-check text-xl"></i>Verificar y Reservar</button></form></template>
+    <template id="admin-panel-template"><div class="bg-white p-6 rounded-2xl shadow-lg mb-8"><div class="flex flex-col sm:flex-row items-center gap-4"><label for="dateFilter" class="block text-sm font-medium text-gray-700">Ver reservas para:</label><div class="flex items-center"><input type="date" id="dateFilter" class="w-full p-3 bg-gray-100 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600"><button id="refresh-button" title="Refrescar" class="action-button ml-2 p-3 bg-green-100 text-green-700 rounded-full hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-green-500 transition-transform transform hover:rotate-90"><i class="ph ph-arrow-clockwise text-lg"></i></button></div></div><div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6 text-center"><div class="bg-gray-100 p-4 rounded-lg shadow-inner"><h3 class="font-bold text-gray-600">Total Comensales</h3><p id="totalDinersDay" class="text-3xl font-extrabold text-gray-800">0</p></div><div class="bg-green-50 p-4 rounded-lg shadow-inner"><h3 class="font-bold text-green-700">Almuerzo</h3><p id="totalDinersLunch" class="text-3xl font-extrabold text-green-800">0</p></div><div class="bg-green-50 p-4 rounded-lg shadow-inner"><h3 class="font-bold text-green-700">Cena</h3><p id="totalDinersDinner" class="text-3xl font-extrabold text-green-800">0</p></div></div></div><div class="bg-white rounded-2xl shadow-lg overflow-hidden"><div class="p-6 border-b border-gray-200"><h2 class="text-xl font-bold text-gray-800">Listado de Reservas para el <span id="selectedDateDisplay" class="text-green-700"></span></h2></div><div class="overflow-x-auto"><table id="reservationsTable" class="w-full text-sm text-left text-gray-600"><thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr><th class="px-6 py-3">Nombre</th><th class="px-6 py-3">Teléfono</th><th class="px-6 py-3">Hora</th><th class="px-6 py-3 text-center">Comensales</th><th class="px-6 py-3">Turno</th><th class="px-6 py-3 text-center">Acciones</th></tr></thead><tbody id="reservationsTableBody"></tbody></table></div></div></template>
+    <template id="delete-modal-template"><div class="relative top-20 mx-auto p-5 border w-full max-w-sm shadow-lg rounded-md bg-white"><div class="mt-3 text-center"><div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100"><i class="ph ph-warning-circle text-2xl text-red-600"></i></div><h3 class="text-lg font-medium text-gray-900 mt-2">Eliminar Reserva</h3><p class="text-sm text-gray-500 px-7 py-3">¿Estás seguro? Esta acción no se puede deshacer.</p><div class="items-center px-4 py-3"><button id="confirmDeleteButton" class="px-4 py-2 bg-red-600 text-white rounded-md w-full shadow-sm hover:bg-red-700">Confirmar</button><button id="cancelDeleteButton" class="mt-2 px-4 py-2 bg-gray-200 text-gray-800 rounded-md w-full shadow-sm hover:bg-gray-300">Cancelar</button></div></div></div></template>
+    <template id="login-modal-template"><div class="relative top-20 mx-auto p-5 border w-full max-w-sm shadow-lg rounded-md bg-white"><div class="mt-3 text-center"><div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-gray-100"><i class="ph ph-lock-key text-2xl text-gray-600"></i></div><h3 class="text-lg leading-6 font-medium text-gray-900 mt-2">Acceso de Administrador</h3><form id="admin-login-form" class="mt-4 px-7 py-3 space-y-3"><label for="admin-password" class="sr-only">Contraseña</label><input type="password" id="admin-password" placeholder="Ingresa tu contraseña" class="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500"><button type="submit" class="w-full bg-green-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-800">Entrar</button></form><p id="admin-login-error" class="text-red-500 text-sm text-center h-4 mt-1"></p><div class="items-center px-4 py-3"><button id="close-admin-modal-button" class="mt-2 px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-300">Cancelar</button></div></div></div></template>
+    <template id="search-modal-template"><div class="relative top-10 md:top-20 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white"><div class="mt-3"><h3 class="text-lg text-center leading-6 font-medium text-gray-900">Buscar mi Reserva</h3><form id="search-form" class="mt-4 px-7 py-3 space-y-3"><label for="search-phone" class="block text-sm font-medium text-gray-700">Ingresa tu número de teléfono</label><div class="flex gap-2"><input type="tel" id="search-phone" placeholder="Ej: 2641234567" required class="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500"><button type="submit" class="bg-green-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-800">Buscar</button></div></form><div id="search-results-container" class="mt-4 px-1 md:px-7 space-y-3 max-h-60 overflow-y-auto"></div><div id="search-message" class="text-center p-4"></div><div class="items-center px-4 py-3 mt-4 border-t"><button id="close-search-modal-button" class="px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-300">Cerrar</button></div></div></div></template>
+    <template id="edit-modal-template"><div class="relative top-10 md:top-20 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white"><button id="close-edit-modal-button" class="absolute top-3 right-3 text-gray-400 hover:text-gray-600"><i class="ph ph-x text-2xl"></i></button><div class="mt-3 text-center"><h3 class="text-lg leading-6 font-medium text-gray-900">Editar Reserva</h3><div id="edit-form-container" class="mt-4 px-7 py-3"></div><div id="edit-message-area" class="mt-4 px-7"></div></div></div></template>
+    
+    <script type="module">
+        // Importaciones de Firebase
+        import { initializeApp, } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, collection, query, where, doc, deleteDoc, addDoc, getDocs, updateDoc, getDoc, documentId } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyBS_eGNLqUH8SshfrnBaUvRTcjJKy5tFiI",
+            authDomain: "losnogales-reservas.firebaseapp.com",
+            projectId: "losnogales-reservas",
+            storageBucket: "losnogales-reservas.appspot.com",
+            messagingSenderId: "707614707617",
+            appId: "1:707614707617:web:57ef12cf519d99ff8585e0",
+            measurementId: "G-MBGF0QWF7K"
+        };
+        
+        const MAX_CAPACITY = 160;
+        const ADMIN_PASSWORD = "facu";
+        const WHATSAPP_NUMBER = "5492644593336"; 
+        
+        let db, auth, currentUserId;
+        try {
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            onAuthStateChanged(auth, user => { 
+                if (user) {
+                    currentUserId = user.uid;
+                    console.log("Firebase conectado. Usuario anónimo:", currentUserId);
+                }
+            });
+            await signInAnonymously(auth);
+        } catch (error) {
+            console.error("Error al inicializar Firebase:", error);
+            document.body.innerHTML = `<div style="padding: 2rem; text-align: center; font-family: sans-serif;"><h1>Error de Conexión</h1><p>No se pudo conectar a Firebase. Revisa la configuración en el código y las reglas de tu base de datos.</p><p style="color: red;">${error.message}</p></div>`;
+        }
+
+        const getEl = (id) => document.getElementById(id);
+        const clientView = getEl('client-view');
+        const adminView = getEl('admin-view');
+        const adminLoginModal = getEl('admin-login-modal');
+        const deleteConfirmationModal = getEl('deleteConfirmationModal');
+        const searchModal = getEl('search-modal');
+        const editModal = getEl('edit-modal');
+        let resIdToDelete = null;
+        let sourceForDelete = ''; 
+
+        function showView(viewName) {
+            adminView.classList.toggle('hidden', viewName !== 'admin');
+            clientView.classList.toggle('hidden', viewName === 'admin');
+            if (viewName === 'admin') initializeAdminPanel();
+        }
+
+        getEl('back-button').addEventListener('click', () => { history.back(); });
+
+        function toggleModal(modal, show) { modal.classList.toggle('hidden', !show); }
+        
+        getEl('show-admin-button').addEventListener('click', () => {
+            adminLoginModal.innerHTML = getEl('login-modal-template').innerHTML;
+            toggleModal(adminLoginModal, true);
+            getEl('admin-login-form').addEventListener('submit', handleAdminLogin);
+            getEl('close-admin-modal-button').addEventListener('click', () => toggleModal(adminLoginModal, false));
+        });
+
+        getEl('show-search-button').addEventListener('click', () => {
+            searchModal.innerHTML = getEl('search-modal-template').innerHTML;
+            toggleModal(searchModal, true);
+            getEl('search-form').addEventListener('submit', handleSearchReservations);
+            getEl('close-search-modal-button').addEventListener('click', () => toggleModal(searchModal, false));
+            getEl('search-results-container').addEventListener('click', handleSearchResultActions);
+        });
+
+        function handleAdminLogin(e) {
+            e.preventDefault();
+            const passwordInput = getEl('admin-password');
+            const errorEl = getEl('admin-login-error');
+            if (passwordInput.value.trim() === ADMIN_PASSWORD) {
+                errorEl.textContent = '';
+                toggleModal(adminLoginModal, false);
+                showView('admin');
+            } else {
+                errorEl.textContent = 'Contraseña incorrecta.';
+            }
+        }
+        
+        getEl('exit-admin-button').addEventListener('click', () => showView('client'));
+        
+        function initializeClientView() {
+            const container = getEl('reservation-form-container');
+            if (container.innerHTML === '') {
+                container.innerHTML = getEl('reservation-form-template').innerHTML;
+                const dateInput = getEl('date');
+                dateInput.setAttribute('min', new Date().toISOString().split('T')[0]);
+                getEl('reservationForm').addEventListener('submit', handleNewReservation);
+            }
+        }
+
+        async function handleNewReservation(e) {
+            e.preventDefault();
+            if (!currentUserId || !db) {
+                displayClientMessage('Conectando al sistema, por favor espera...', 'info');
+                return;
+            }
+
+            const reservation = {
+                name: getEl('name').value, 
+                phone: sanitizePhone(getEl('phone').value),
+                date: getEl('date').value,
+                time: getEl('time').value, 
+                diners: parseInt(getEl('diners').value, 10),
+            };
+
+            if (!validateReservationTime(reservation.date, reservation.time, 'client')) return;
+            
+            const turnData = getTurn(reservation.date, reservation.time);
+            const reservationsCollection = collection(db, "reservations");
+            const q = query(reservationsCollection, where("date", "==", reservation.date), where("turn", "==", turnData.turnName));
+            
+            try {
+                const querySnapshot = await getDocs(q);
+                const currentDiners = querySnapshot.docs.reduce((sum, doc) => sum + doc.data().diners, 0);
+                const remainingCapacity = MAX_CAPACITY - currentDiners;
+                const dateFormatted = new Date(reservation.date + 'T00:00:00').toLocaleDateString('es-AR');
+
+                if (reservation.diners > remainingCapacity) {
+                    const inquiryMsg = encodeURIComponent(`Hola Parrilla Los Nogales, quisiera consultar por una reserva para ${reservation.diners} personas el día ${dateFormatted} a las ${reservation.time}hs, ya que no encontré lugar en la web. ¿Habrá alguna posibilidad?`);
+                    const whatsappBtn = `<a href="https://wa.me/${WHATSAPP_NUMBER}?text=${inquiryMsg}" target="_blank" class="mt-4 inline-block w-full text-center bg-yellow-500 text-black font-bold py-3 px-4 rounded-lg hover:bg-yellow-600 transition flex items-center justify-center gap-2"><i class="ph ph-whatsapp-logo text-xl"></i>Coordinar por WhatsApp</a>`;
+                    displayClientMessage(`<strong>CAPACIDAD SUPERADA</strong><br>Solo quedan <strong>${remainingCapacity}</strong> lugares. Para grupos grandes, contáctanos.`, 'error', whatsappBtn);
+                    return;
+                }
+
+                const newDoc = await addDoc(reservationsCollection, { ...reservation, turn: turnData.turnName, userId: currentUserId, createdAt: new Date() });
+                const successMsg = encodeURIComponent(`¡Hola! Quiero confirmar mi reserva a nombre de *${reservation.name}* para *${reservation.diners} personas*, el día *${dateFormatted} a las ${reservation.time} hs*. (ID: ${newDoc.id})`);
+                const whatsappBtnSuccess = `<a href="https://wa.me/${WHATSAPP_NUMBER}?text=${successMsg}" target="_blank" class="mt-4 inline-block w-full text-center bg-green-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-600 transition flex items-center justify-center gap-2"><i class="ph ph-whatsapp-logo text-xl"></i>Confirmar por WhatsApp</a>`;
+                displayClientMessage(`<strong>¡ÚLTIMO PASO!</strong><br>Tu reserva está pre-agendada. Para confirmarla definitivamente, envíanos un WhatsApp.`, 'success', whatsappBtnSuccess);
+                
+                getEl('reservationForm').reset();
+                getEl('date').setAttribute('min', new Date().toISOString().split('T')[0]);
+            } catch (error) {
+                console.error("Error al procesar la reserva:", error);
+                displayClientMessage('Ocurrió un error al procesar tu solicitud.', 'error');
+            }
+        }
+
+        async function handleSearchReservations(e) {
+            e.preventDefault();
+            const phone = sanitizePhone(getEl('search-phone').value);
+            const resultsContainer = getEl('search-results-container');
+            const messageEl = getEl('search-message');
+            resultsContainer.innerHTML = '';
+            messageEl.textContent = 'Buscando...';
+
+            if (!phone) {
+                messageEl.textContent = 'Por favor, ingresa un número de teléfono.';
+                return;
+            }
+
+            const q = query(collection(db, "reservations"), where("phone", "==", phone));
+            const snapshot = await getDocs(q);
+
+            if (snapshot.empty) {
+                messageEl.textContent = 'No se encontraron reservas con ese número de teléfono.';
+                return;
+            }
+            
+            messageEl.textContent = '';
+            snapshot.docs.forEach(doc => {
+                const res = { id: doc.id, ...doc.data() };
+                const dateFormatted = new Date(res.date + 'T00:00:00').toLocaleDateString('es-AR');
+                const resultCard = document.createElement('div');
+                resultCard.className = "p-3 border rounded-lg bg-gray-50 flex justify-between items-center";
+                resultCard.setAttribute('data-id', res.id);
+                resultCard.innerHTML = `
+                    <div>
+                        <p class="font-bold">${res.name}</p>
+                        <p class="text-sm text-gray-600">${dateFormatted} - ${res.time} hs - ${res.diners} personas</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button data-id="${res.id}" class="action-button edit-res-btn p-2 text-blue-500 hover:text-blue-700 rounded-full hover:bg-blue-100"><i class="ph ph-pencil-simple text-lg"></i></button>
+                        <button data-id="${res.id}" class="action-button delete-res-btn p-2 text-red-500 hover:text-red-700 rounded-full hover:bg-red-100"><i class="ph ph-trash text-lg"></i></button>
+                    </div>
+                `;
+                resultsContainer.appendChild(resultCard);
+            });
+        }
+
+        async function handleSearchResultActions(e) {
+            const button = e.target.closest('.action-button');
+            if (!button) return;
+
+            const id = button.dataset.id;
+            if (button.classList.contains('edit-res-btn')) {
+                const docRef = doc(db, "reservations", id);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    editModal.innerHTML = getEl('edit-modal-template').innerHTML;
+                    const resData = docSnap.data();
+                    const formContainer = getEl('edit-form-container');
+                    const messageArea = getEl('edit-message-area');
+                    formContainer.innerHTML = getEl('reservation-form-template').innerHTML;
+                    
+                    const form = formContainer.querySelector('form');
+                    form.id = 'editReservationForm';
+                    form.querySelector('button[type="submit"]').textContent = 'Guardar Cambios';
+
+                    form.name.value = resData.name;
+                    form.phone.value = resData.phone;
+                    form.date.value = resData.date;
+                    form.time.value = resData.time;
+                    form.diners.value = resData.diners;
+                    
+                    getEl('close-edit-modal-button').addEventListener('click', () => toggleModal(editModal, false));
+                    toggleModal(editModal, true);
+                    
+                    form.addEventListener('submit', async (submitEvent) => {
+                        submitEvent.preventDefault();
+                        messageArea.innerHTML = ''; 
+                        
+                        const newDate = form.date.value;
+                        const newTime = form.time.value;
+                        
+                        if (!validateReservationTime(newDate, newTime, 'modal', messageArea)) {
+                            return; 
+                        }
+                        
+                        const newDiners = parseInt(form.diners.value, 10);
+                        const turnData = getTurn(newDate, newTime);
+
+                        const q = query(collection(db, "reservations"), where("date", "==", newDate), where("turn", "==", turnData.turnName), where(documentId(), "!=", id));
+                        const snapshot = await getDocs(q);
+                        const otherDiners = snapshot.docs.reduce((sum, doc) => sum + doc.data().diners, 0);
+                        
+                        const availableCapacity = MAX_CAPACITY - otherDiners;
+
+                        if (newDiners > availableCapacity) {
+                            const dateFormatted = new Date(newDate + 'T00:00:00').toLocaleDateString('es-AR');
+                            const inquiryMsg = encodeURIComponent(`Hola Parrilla Los Nogales, quisiera consultar para modificar mi reserva a ${newDiners} personas el día ${dateFormatted} a las ${newTime}hs, ya que no encontré lugar en la web. ¿Habrá alguna posibilidad?`);
+                            const whatsappBtn = `<a href="https://wa.me/${WHATSAPP_NUMBER}?text=${inquiryMsg}" target="_blank" class="mt-2 inline-block w-full text-center bg-yellow-500 text-black font-bold py-2 px-3 rounded-lg hover:bg-yellow-600 transition text-sm flex items-center justify-center gap-2"><i class="ph ph-whatsapp-logo text-lg"></i>Coordinar modificación</a>`;
+                            displayModalMessage(messageArea, `Solo quedan <strong>${availableCapacity}</strong> lugares disponibles.`, 'error', whatsappBtn);
+                            return;
+                        }
+                        
+                        const updatedData = {
+                            name: form.name.value, 
+                            phone: sanitizePhone(form.phone.value),
+                            date: newDate,
+                            time: newTime, 
+                            diners: newDiners,
+                            turn: turnData.turnName
+                        };
+
+                        await updateDoc(docRef, updatedData);
+                        toggleModal(editModal, false);
+                        getEl('search-form').requestSubmit();
+                    });
+                }
+            } else if (button.classList.contains('delete-res-btn')) {
+                resIdToDelete = id;
+                sourceForDelete = 'search';
+                openDeleteConfirmation();
+            }
+        }
+        
+        function openDeleteConfirmation() {
+            deleteConfirmationModal.innerHTML = getEl('delete-modal-template').innerHTML;
+            toggleModal(deleteConfirmationModal, true);
+            getEl('confirmDeleteButton').addEventListener('click', handleDelete);
+            getEl('cancelDeleteButton').addEventListener('click', () => toggleModal(deleteConfirmationModal, false));
+        }
+
+        async function handleDelete() {
+            if (!resIdToDelete) return;
+            const docRef = doc(db, "reservations", resIdToDelete);
+            
+            try {
+                const docSnap = await getDoc(docRef);
+                let reservationData = null;
+                if (docSnap.exists()) {
+                    reservationData = docSnap.data();
+                }
+
+                await deleteDoc(docRef);
+
+                if (reservationData && sourceForDelete === 'search') {
+                    const dateFormatted = new Date(reservationData.date + 'T00:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+                    const message = `AVISO DE CANCELACIÓN\n\nSe ha cancelado la siguiente reserva:\n\n*Cliente:* ${reservationData.name}\n*Fecha:* ${dateFormatted}\n*Hora:* ${reservationData.time} hs\n*Personas:* ${reservationData.diners}`;
+                    const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+                    window.open(whatsappUrl, '_blank');
+                }
+
+                if (sourceForDelete === 'admin') {
+                    fetchAdminReservations(getEl('dateFilter').value);
+                } else if (sourceForDelete === 'search') {
+                    const resultsContainer = getEl('search-results-container');
+                    const cardToDelete = resultsContainer.querySelector(`[data-id="${resIdToDelete}"]`);
+                    if (cardToDelete) {
+                        cardToDelete.remove();
+                    }
+                    if (resultsContainer.children.length === 0) {
+                        getEl('search-message').textContent = 'No se encontraron más reservas con ese número.';
+                    }
+                }
+            } catch (error) {
+                console.error("Error al eliminar la reserva:", error);
+                alert("Hubo un error al intentar eliminar la reserva.");
+            } finally {
+                toggleModal(deleteConfirmationModal, false);
+                resIdToDelete = null;
+            }
+        }
+
+        function initializeAdminPanel() {
+            const container = getEl('admin-panel-container');
+            if (container.innerHTML !== '' && getEl('dateFilter')) { 
+                getEl('refresh-button').click(); return;
+            }
+            container.innerHTML = getEl('admin-panel-template').innerHTML;
+            const dateFilter = getEl('dateFilter');
+            setInitialAdminDateAndFetch();
+            dateFilter.onchange = () => fetchAdminReservations(dateFilter.value);
+            getEl('refresh-button').onclick = () => fetchAdminReservations(dateFilter.value);
+            getEl('reservationsTableBody').addEventListener('click', (e) => {
+                const button = e.target.closest('.delete-res-btn');
+                if (button) {
+                    resIdToDelete = button.dataset.id;
+                    sourceForDelete = 'admin';
+                    openDeleteConfirmation();
+                }
+            });
+        }
+        
+        function setInitialAdminDateAndFetch() {
+            const dateFilter = getEl('dateFilter');
+            if (!dateFilter.value) {
+                const today = new Date();
+                dateFilter.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            }
+            fetchAdminReservations(dateFilter.value);
+        }
+        
+        async function fetchAdminReservations(dateString) {
+            if (!dateString || !db) return;
+            const [year, month, day] = dateString.split('-');
+            getEl('selectedDateDisplay').textContent = new Date(year, month - 1, day).toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            
+            const q = query(collection(db, "reservations"), where("date", "==", dateString));
+            const snapshot = await getDocs(q);
+            const reservations = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            reservations.sort((a, b) => a.time.localeCompare(b.time));
+            updateAdminUI(reservations);
+        }
+
+        function updateAdminUI(reservations) {
+            const body = getEl('reservationsTableBody');
+            body.innerHTML = '';
+            let dinersDay = 0, dinersLunch = 0, dinersDinner = 0;
+            if (reservations.length === 0) {
+                body.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-gray-500">No hay reservas</td></tr>`;
+            } else {
+                reservations.forEach(res => {
+                    const d = res.diners || 0;
+                    dinersDay += d;
+                    if (res.turn === 'almuerzo') dinersLunch += d; else dinersDinner += d;
+                    const row = body.insertRow();
+                    row.innerHTML = `<td data-label="Nombre">${res.name}</td><td data-label="Teléfono">${res.phone}</td><td data-label="Hora">${res.time} hs</td><td data-label="Comensales" class="font-bold text-lg md:text-base md:text-center">${d}</td><td data-label="Turno"><span class="px-2 py-1 font-semibold leading-tight text-xs rounded-full ${res.turn === 'almuerzo' ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700'}">${res.turn}</span></td><td class="actions-cell"><button data-id="${res.id}" class="action-button delete-res-btn p-2 text-red-500 hover:text-red-700 rounded-full hover:bg-red-100"><i class="ph ph-trash text-lg"></i></button></td>`;
+                });
+            }
+            getEl('totalDinersDay').textContent = dinersDay;
+            getEl('totalDinersLunch').textContent = dinersLunch;
+            getEl('totalDinersDinner').textContent = dinersDinner;
+        }
+
+        function sanitizePhone(phoneString) {
+            if (typeof phoneString !== 'string') return '';
+            return phoneString.replace(/\D/g, '');
+        }
+
+        function getTurn(dateString, timeString) {
+            if (!dateString || !timeString) return { isOpen: false, turnName: null };
+            const date = new Date(`${dateString}T${timeString}:00`);
+            const dayOfWeek = date.getDay();
+            const timeInMinutes = date.getHours() * 60 + date.getMinutes();
+            if ([0, 4, 5, 6].includes(dayOfWeek) && timeInMinutes >= 720 && timeInMinutes < 960) return { isOpen: true, turnName: 'almuerzo' };
+            if ([1, 2, 3, 4, 5, 6].includes(dayOfWeek) && timeInMinutes >= 1200 && (timeInMinutes < 1440 || timeInMinutes <= 60)) return { isOpen: true, turnName: 'cena' };
+            return { isOpen: false, turnName: null };
+        }
+
+        function validateReservationTime(date, time, context = 'client', messageEl = null) {
+            const displayFn = context === 'modal' ? (msg, type, extra) => displayModalMessage(messageEl, msg, type, extra) : displayClientMessage;
+
+            const now = new Date();
+            const reservationDateTime = new Date(`${date}T${time}`);
+            if (reservationDateTime < now) {
+                displayFn('<strong>Fecha inválida:</strong> No puedes reservar en una fecha u hora pasada.', 'error');
+                return false;
+            }
+            if (reservationDateTime.toDateString() === now.toDateString() && (reservationDateTime.getTime() - now.getTime()) / 60000 < 30) {
+                displayFn('<strong>Fuera de tiempo:</strong> Las reservas para hoy deben hacerse con 30+ min de anticipación.', 'error');
+                return false;
+            }
+            if (!getTurn(date, time).isOpen) {
+                displayFn('<strong>CERRADO:</strong> El restaurante no está abierto en el horario seleccionado.', 'error');
+                return false;
+            }
+            return true;
+        }
+        
+        function displayClientMessage(message, type, extraHtml = '') {
+            const messageArea = getEl('client-message-area');
+            const c = { success: { bg: 'bg-green-100', text: 'text-green-800', icon: 'ph-check-circle' }, error: { bg: 'bg-red-100', text: 'text-red-800', icon: 'ph-x-circle' }, info: { bg: 'bg-blue-100', text: 'text-blue-800', icon: 'ph-info' } }[type];
+            messageArea.innerHTML = `<div class="${c.bg} ${c.text} p-4 rounded-lg"><div class="flex items-center justify-center gap-3"><i class="ph ${c.icon} text-2xl"></i><div class="text-left">${message}</div></div><div class="mt-2">${extraHtml}</div></div>`;
+        }
+        
+        function displayModalMessage(messageArea, message, type, extraHtml = '') {
+            const c = { error: { bg: 'bg-red-100', text: 'text-red-800', icon: 'ph-x-circle' } }[type];
+            if (!c || !messageArea) return;
+            messageArea.innerHTML = `<div class="${c.bg} ${c.text} p-3 rounded-lg"><div class="flex items-center gap-3"><i class="ph ${c.icon} text-xl"></i><div class="text-left text-sm">${message}</div></div><div class="mt-2">${extraHtml}</div></div>`;
+        }
+
+        // --- INICIAR LA APLICACIÓN ---
+        initializeClientView();
+    </script>
+</body>
+</html>

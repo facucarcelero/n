@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menú Los Nogales</title>
+    <link rel="icon" type="image/x-icon" href="./Logo/favicon.ico">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
+    <style>
+        :root {
+            --background-color: #f8f9fa;
+            --container-bg: #ffffff;
+            --text-color: #212529;
+            --primary-green: #28a745;
+            --dark-green: #218838;
+            --primary-blue: #007bff;
+            --dark-blue: #0056b3;
+            --danger-red: #dc3545;
+            --light-gray: #e9ecef;
+            --border-color: #dee2e6;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            padding-bottom: 120px;
+        }
+
+        .main-container {
+            max-width: 900px;
+            margin: auto;
+            background: var(--container-bg);
+            padding: 20px 30px 30px;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .menu-header {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 30px;
+            position: relative; /* Posición relativa para anclar los botones */
+        }
+        
+        .header-title-group { display: flex; align-items: center; gap: 20px; }
+        .header-logo { height: 60px; width: auto; }
+        .menu-header h1 { color: var(--text-color); font-size: 2.5em; font-weight: 700; margin: 0; }
+        .hidden { display: none; }
+
+        /* --- Vista Pública --- */
+        #public-view .menu-category h2 { font-size: 1.8em; color: var(--text-color); border-bottom: 2px solid var(--primary-green); padding-bottom: 10px; margin-bottom: 20px; }
+        #public-view .menu-item { display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; padding: 15px 0; border-bottom: 1px dashed var(--border-color); }
+        #public-view .menu-category > div:last-of-type { border-bottom: none; }
+        #public-view .menu-item-name { font-weight: 600; }
+        #public-view .menu-item-description { font-style: italic; color: #6c757d; font-size: 0.9em; margin-top: 4px; }
+        #public-view .menu-item-price { font-weight: 700; color: var(--primary-green); white-space: nowrap; font-size: 1.1em;}
+
+        /* --- Vista de Administrador --- */
+        #admin-view { display: none; }
+        .admin-top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border-color); }
+        .admin-top-bar h3 { margin: 0; font-weight: 600; }
+        .btn-icon { background: transparent; border: none; cursor: pointer; padding: 8px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background-color 0.2s; }
+        .btn-icon:hover { background-color: var(--light-gray); }
+        .btn-icon svg { width: 24px; height: 24px; fill: var(--text-color); }
+        
+        #admin-view .admin-controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; background-color: var(--light-gray); padding: 15px; border-radius: 8px; }
+        #admin-view .menu-category { border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; margin-bottom: 20px; transition: opacity 0.3s; background-color: #fff; }
+        
+        /* Clases para ocultar/mostrar elementos en el panel y para arrastrar */
+        #admin-view.hide-hidden-items .is-hidden { display: none; }
+        .draggable-handle { cursor: grab; color: #adb5bd; }
+        .sortable-ghost { background-color: #d1fae5; opacity: 0.7; }
+        /* Estilo para el elemento clonado que se arrastra */
+        .sortable-fallback { opacity: 1 !important; background-color: #ffffff; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+
+
+        #admin-view .menu-category.is-hidden, #admin-view .menu-item.is-hidden { opacity: 0.5; background-color: #f8f9fa; }
+        #admin-view .category-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; }
+        #admin-view .category-header input { font-size: 1.5em; font-weight: 700; border: none; background: transparent; padding: 5px; border-bottom: 2px solid transparent; flex-grow: 1; }
+        #admin-view .menu-item { display: grid; grid-template-columns: auto 1fr auto; gap: 15px; align-items: center; padding-top: 15px; margin-top: 15px; border-top: 1px solid var(--border-color); transition: opacity 0.3s; }
+        #admin-view .menu-item-inputs input:first-child { margin-bottom: 8px; }
+        #admin-view .menu-item-actions { display: flex; align-items: center; gap: 10px; }
+
+        input, .btn { border-radius: 8px; border: 1px solid var(--border-color); padding: 10px; font-size: 1em; box-sizing: border-box; width: 100%; }
+        .btn { font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; border: none; }
+        .btn-green { background-color: var(--primary-green); color: white; }
+        .btn-red { background-color: var(--danger-red); color: white; }
+        .btn-blue { background-color: var(--primary-blue); color: white; }
+
+        @media (max-width: 767px) {
+            body { padding: 10px; padding-bottom: 100px; }
+            .main-container { padding: 15px; }
+            .menu-header .header-title-group { gap: 10px; }
+            .header-logo { height: 40px; }
+            .menu-header h1 { font-size: 1.5em; }
+            #public-view .menu-item { flex-direction: column; align-items: flex-start; gap: 5px; }
+            #admin-view .admin-controls, #admin-view .category-header { flex-direction: column; align-items: stretch; }
+            #admin-view .category-header .category-actions { display: flex; gap: 10px; }
+            #admin-view .menu-item { grid-template-columns: 1fr; }
+            #admin-view .menu-item-actions { justify-content: flex-start; }
+            #admin-view .menu-item-actions input { max-width: 120px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="main-container">
+        <header class="menu-header">
+            <div class="absolute top-0 left-4 right-4 flex justify-between z-20">
+                <button id="back-button"
+                        onclick="history.back();"
+                        title="Volver a la página anterior"
+                        class="p-2 bg-white text-gray-600 rounded-full shadow-md hover:bg-gray-100 transition">
+                    <i class="ph ph-arrow-left text-2xl"></i>
+                </button>
+                <button id="show-admin-button" title="Acceso Administrador" class="p-2 bg-white text-gray-600 rounded-full shadow-md hover:bg-gray-100 transition">
+                    <i class="ph ph-user-gear text-2xl"></i>
+                </button>
+            </div>
+            <div class="header-title-group" style="padding-top: 3.5rem;">
+                <img src="./Logo/Logo Los Nogales.png" alt="Logo Los Nogales" class="header-logo">
+                <h1>Parrilla Los Nogales</h1>
+            </div>
+        </header>
+        <div id="public-view"></div>
+        <div id="admin-view"></div>
+    </div>
+    
+    <template id="login-modal-template">
+        <div class="relative top-20 mx-auto p-5 border w-full max-w-sm shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-gray-100">
+                    <i class="ph ph-lock-key text-2xl text-gray-600"></i>
+                </div>
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mt-2">Acceso de Administrador</h3>
+                <form id="admin-login-form" class="mt-4 px-7 py-3 space-y-3">
+                    <label for="admin-password" class="sr-only">Contraseña</label>
+                    <input type="password" id="admin-password" placeholder="Ingresa tu contraseña" class="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500">
+                    <button type="submit" class="w-full bg-green-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-800">Entrar</button>
+                </form>
+                <p id="admin-login-error" class="text-red-500 text-sm text-center h-4 mt-1"></p>
+                <div class="items-center px-4 py-3">
+                    <button id="close-admin-modal-button" class="mt-2 px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-300">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </template>
+    
+    <div id="admin-login-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center" style="z-index: 1100;"></div>
+    
+    <script>
+        const app = {
+            isAdmin: false,
+            showHiddenInAdmin: false, 
+            menuData: [],
+            nodes: {
+                body: document.body,
+                publicView: document.getElementById('public-view'),
+                adminView: document.getElementById('admin-view'),
+                adminButton: document.getElementById('show-admin-button'),
+                backButton: document.getElementById('back-button'),
+            },
+            icons: {
+                visible: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5C21.27 7.61 17 4.5 12 4.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>`,
+                hidden: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.44-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/></svg>`
+            },
+            init() {
+                this.loadMenuData();
+                this.render();
+                this.nodes.adminButton.addEventListener('click', () => this.openLoginModal());
+            },
+            loadMenuData() {
+                const savedData = localStorage.getItem('nogalesMenuData');
+                if (savedData) {
+                    try { 
+                        this.menuData = JSON.parse(savedData);
+                        if (!Array.isArray(this.menuData)) this.setDefaultData();
+                        this.menuData.forEach(cat => {
+                            if (cat.hidden === undefined) cat.hidden = false;
+                            cat.items.forEach(item => {
+                                if (item.hidden === undefined) item.hidden = false;
+                            });
+                        });
+                    } catch(e) { this.setDefaultData(); }
+                } else { this.setDefaultData(); }
+            },
+            setDefaultData() {
+                this.menuData = [
+                    { name: "Bebidas", hidden: false, items: [ { name: "Agua", description: "", price: "1500", hidden: false }, { name: "Agua Grande", description: "", price: "4500", hidden: false }, { name: "Gaseosa", description: "", price: "4500", hidden: false } ]},
+                    { name: "Platos Principales", hidden: false, items: [ { name: "Asado de Tira a las Brasas", description: "", price: "14000", hidden: false }, { name: "Bife Chorizo 300 Gr", description: "Con guarnición", price: "16000", hidden: false } ]},
+                ];
+                this.saveMenuData();
+            },
+            saveMenuData() { localStorage.setItem('nogalesMenuData', JSON.stringify(this.menuData)); },
+            render() {
+                this.nodes.publicView.style.display = this.isAdmin ? 'none' : 'block';
+                this.nodes.adminView.style.display = this.isAdmin ? 'block' : 'none';
+                this.nodes.adminButton.classList.toggle('hidden', this.isAdmin);
+                this.nodes.backButton.classList.toggle('hidden', this.isAdmin);
+
+                if (this.isAdmin) this.renderAdminView();
+                else this.renderPublicView();
+            },
+            renderPublicView() {
+                this.nodes.publicView.innerHTML = '';
+                this.menuData.forEach(category => {
+                    if (category.hidden) return;
+                    const visibleItems = category.items.filter(item => !item.hidden);
+                    if (visibleItems.length === 0) return;
+                    
+                    const categoryEl = document.createElement('div');
+                    categoryEl.className = 'menu-category';
+                    categoryEl.innerHTML = `<h2>${category.name || 'Categoría'}</h2>`;
+                    visibleItems.forEach(item => {
+                        const itemEl = document.createElement('div');
+                        itemEl.className = 'menu-item';
+                        const price = parseFloat(item.price);
+                        itemEl.innerHTML = `<div class="menu-item-details"><div class="menu-item-name">${item.name || ''}</div>${item.description ? `<div class="menu-item-description">${item.description}</div>` : ''}</div><div class="menu-item-price">$${isNaN(price) ? '0' : price.toLocaleString('es-AR')}</div>`;
+                        categoryEl.appendChild(itemEl);
+                    });
+                    this.nodes.publicView.appendChild(categoryEl);
+                });
+            },
+            renderAdminView() {
+                this.nodes.adminView.innerHTML = `
+                    <div class="admin-top-bar">
+                        <h3>Modo Administrador</h3>
+                        <button onclick="app.logout()" class="text-sm font-medium bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-lg">Salir</button>
+                    </div>`;
+
+                const adminControls = document.createElement('div');
+                adminControls.className = 'admin-controls';
+                adminControls.innerHTML = `
+                    <input type="text" id="new-category-name" placeholder="Crear nueva categoría..." style="flex-grow: 1;">
+                    <button class="btn btn-green" onclick="app.addCategory()">Crear</button>
+                    <button id="toggle-hidden-btn" class="btn btn-blue" onclick="app.toggleHiddenFilter(this)" style="flex-grow: 0; width: auto;">Mostrar Ocultos</button>
+                `;
+                this.nodes.adminView.appendChild(adminControls);
+
+                const categoriesContainer = document.createElement('div');
+                categoriesContainer.id = 'categories-container';
+                this.nodes.adminView.appendChild(categoriesContainer);
+
+                this.nodes.adminView.classList.toggle('hide-hidden-items', !this.showHiddenInAdmin);
+
+                this.menuData.forEach((category, catIndex) => {
+                    const categoryDiv = document.createElement('div');
+                    categoryDiv.className = `menu-category ${category.hidden ? 'is-hidden' : ''}`;
+                    categoryDiv.dataset.id = catIndex;
+
+                    const itemsContainer = document.createElement('div');
+                    itemsContainer.className = 'items-container';
+                    itemsContainer.dataset.categoryId = catIndex;
+
+                    category.items.forEach((item, itemIndex) => {
+                        const itemEl = document.createElement('div');
+                        itemEl.className = `menu-item ${item.hidden ? 'is-hidden' : ''}`;
+                        itemEl.dataset.id = itemIndex;
+                        
+                        itemEl.innerHTML = `
+                            <i class="ph-fill ph-dots-six-vertical draggable-handle text-2xl"></i>
+                            <div class="menu-item-inputs">
+                                <input type="text" value="${item.name || ''}" oninput="app.updateItem(${catIndex}, ${itemIndex}, 'name', this.value)">
+                                <input type="text" value="${item.description || ''}" oninput="app.updateItem(${catIndex}, ${itemIndex}, 'description', this.value)">
+                            </div>
+                            <div class="menu-item-actions">
+                                <input type="number" value="${item.price || '0'}" oninput="app.updateItem(${catIndex}, ${itemIndex}, 'price', this.value)" style="width: 100px; text-align: right;">
+                                <button class="btn-icon" onclick="app.toggleItemVisibility(${catIndex}, ${itemIndex})">${item.hidden ? this.icons.hidden : this.icons.visible}</button>
+                                <button class="btn btn-red" onclick="app.deleteItem(${catIndex}, ${itemIndex})" style="padding: 10px 15px;">X</button>
+                            </div>`;
+                        itemsContainer.appendChild(itemEl);
+                    });
+
+                    const categoryHeader = document.createElement('div');
+                    categoryHeader.className = 'category-header';
+                    categoryHeader.innerHTML = `
+                        <i class="ph-fill ph-dots-six-vertical draggable-handle text-2xl"></i>
+                        <input type="text" value="${category.name || ''}" oninput="app.updateCategoryName(${catIndex}, this.value)">
+                        <div class="category-actions">
+                            <button class="btn-icon" onclick="app.toggleCategoryVisibility(${catIndex})">${category.hidden ? this.icons.hidden : this.icons.visible}</button>
+                            <button class="btn btn-blue" onclick="app.addItem(${catIndex})">Añadir Plato</button>
+                            <button class="btn btn-red" onclick="app.deleteCategory(${catIndex})" style="margin-left: 10px;">Eliminar</button>
+                        </div>`;
+                    
+                    categoryDiv.appendChild(categoryHeader);
+                    categoryDiv.appendChild(itemsContainer);
+                    categoriesContainer.appendChild(categoryDiv);
+                });
+                
+                this.initDragAndDrop();
+            },
+
+            toggleHiddenFilter(button) {
+                this.showHiddenInAdmin = !this.showHiddenInAdmin;
+                this.nodes.adminView.classList.toggle('hide-hidden-items', !this.showHiddenInAdmin);
+                button.textContent = this.showHiddenInAdmin ? 'Ocultar Ocultos' : 'Mostrar Ocultos';
+            },
+
+            initDragAndDrop() {
+                const categoriesContainer = document.getElementById('categories-container');
+                if (categoriesContainer) {
+                    Sortable.create(categoriesContainer, {
+                        handle: '.draggable-handle',
+                        animation: 150,
+                        ghostClass: 'sortable-ghost',
+                        forceFallback: true, // AÑADIDO: Para un arrastre más suave
+                        fallbackOnBody: true, // AÑADIDO: El clon se adjunta al body
+                        onEnd: (evt) => {
+                            const movedCategory = this.menuData.splice(evt.oldIndex, 1)[0];
+                            this.menuData.splice(evt.newIndex, 0, movedCategory);
+                            this.saveAndRenderAdmin();
+                        },
+                    });
+                }
+
+                document.querySelectorAll('.items-container').forEach(container => {
+                    const catIndex = container.dataset.categoryId;
+                    Sortable.create(container, {
+                        handle: '.draggable-handle',
+                        animation: 150,
+                        ghostClass: 'sortable-ghost',
+                        forceFallback: true, // AÑADIDO: Para un arrastre más suave
+                        fallbackOnBody: true, // AÑADIDO: El clon se adjunta al body
+                        onEnd: (evt) => {
+                            const movedItem = this.menuData[catIndex].items.splice(evt.oldIndex, 1)[0];
+                            this.menuData[catIndex].items.splice(evt.newIndex, 0, movedItem);
+                            this.saveAndRenderAdmin();
+                        },
+                    });
+                });
+            },
+            
+            openLoginModal() {
+                const modalContainer = document.getElementById('admin-login-modal');
+                const template = document.getElementById('login-modal-template');
+                modalContainer.innerHTML = template.innerHTML;
+                modalContainer.classList.remove('hidden');
+                document.getElementById('admin-login-form').addEventListener('submit', (e) => this.handleLogin(e));
+                document.getElementById('close-admin-modal-button').addEventListener('click', () => this.closeLoginModal());
+            },
+            closeLoginModal() {
+                const modalContainer = document.getElementById('admin-login-modal');
+                modalContainer.classList.add('hidden');
+                modalContainer.innerHTML = ''; 
+                if (!this.isAdmin) {
+                    this.nodes.adminButton.classList.remove('hidden');
+                }
+            },
+            handleLogin(e) {
+                e.preventDefault();
+                const passwordInput = document.getElementById('admin-password');
+                const errorEl = document.getElementById('admin-login-error');
+                if (passwordInput.value.trim() === 'facu') {
+                    errorEl.textContent = '';
+                    this.isAdmin = true;
+                    this.closeLoginModal();
+                    this.render();
+                } else {
+                    errorEl.textContent = 'Contraseña incorrecta.';
+                }
+            },
+            logout() { this.isAdmin = false; this.render(); },
+            addCategory() {
+                const input = document.getElementById('new-category-name');
+                if (input.value.trim()) {
+                    this.menuData.push({ name: input.value.trim(), hidden: false, items: [] });
+                    this.saveAndRenderAdmin();
+                    input.value = '';
+                }
+            },
+            deleteCategory(catIndex) {
+                this.menuData.splice(catIndex, 1);
+                this.saveAndRenderAdmin();
+            },
+            toggleCategoryVisibility(catIndex) {
+                this.menuData[catIndex].hidden = !this.menuData[catIndex].hidden;
+                this.saveAndRenderAdmin();
+            },
+            updateCategoryName(catIndex, newName) { this.menuData[catIndex].name = newName; this.saveMenuData(); },
+            addItem(catIndex) {
+                this.menuData[catIndex].items.push({ name: 'Nuevo Plato', description: '', price: '0', hidden: false });
+                this.saveAndRenderAdmin();
+            },
+            deleteItem(catIndex, itemIndex) {
+                this.menuData[catIndex].items.splice(itemIndex, 1);
+                this.saveAndRenderAdmin();
+            },
+            toggleItemVisibility(catIndex, itemIndex) {
+                this.menuData[catIndex].items[itemIndex].hidden = !this.menuData[catIndex].items[itemIndex].hidden;
+                this.saveAndRenderAdmin();
+            },
+            updateItem(catIndex, itemIndex, field, value) { this.menuData[catIndex].items[itemIndex][field] = value; this.saveMenuData(); },
+            saveAndRenderAdmin() { this.saveMenuData(); this.renderAdminView(); }
+        };
+        
+        app.init();
+    </script>
+
+</body>
+</html>
