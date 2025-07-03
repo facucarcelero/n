@@ -44,7 +44,7 @@
                         <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Panel de Control</h1>
                         <p class="text-lg text-green-800 logo-font" style="font-weight:700;">Parrilla Los Nogales</p>
                     </div>
-                    </div>
+                </div>
                 <div id="admin-panel-container"></div>
             </div>
         </div>
@@ -189,7 +189,7 @@
         
         const MAX_CAPACITY = 160;
         // La contraseña del admin ya no es necesaria en este archivo
-        const WHATSAPP_NUMBER = "+5492644593336"; 
+        // const WHATSAPP_NUMBER = "+5492644593336"; // Ya no se usa para envíos automáticos
 
         let db, auth, currentUserId;
         try {
@@ -291,11 +291,11 @@
             today.setHours(0, 0, 0, 0); 
 
             const reservationDateTime = new Date(`${date}T${time}:00`);
-            reservationDateTime.setSeconds(0,0);
+            reservationDateTime.setSeconds(0, 0);
             reservationDateTime.setMilliseconds(0);
 
             const now = new Date();
-            now.setSeconds(0,0);
+            now.setSeconds(0, 0);
             now.setMilliseconds(0);
 
             const reservationDateOnly = new Date(`${date}T00:00:00`);
@@ -307,7 +307,7 @@
 
             if (reservationDateOnly.getTime() === today.getTime()) {
                 const requiredAdvanceTime = new Date(now.getTime() + (30 * 60 * 1000));
-                requiredAdvanceTime.setSeconds(0,0);
+                requiredAdvanceTime.setSeconds(0, 0);
                 requiredAdvanceTime.setMilliseconds(0);
                 
                 if (reservationDateTime < requiredAdvanceTime) {
@@ -333,11 +333,11 @@
                 } else {
                     closeDateTime = new Date(`${date}T${turnData.closeTime}:00`);
                 }
-                closeDateTime.setSeconds(0,0);
+                closeDateTime.setSeconds(0, 0);
                 closeDateTime.setMilliseconds(0);
 
                 const cutoffTime = new Date(closeDateTime.getTime() - (60 * 60 * 1000));
-                cutoffTime.setSeconds(0,0);
+                cutoffTime.setSeconds(0, 0);
                 cutoffTime.setMilliseconds(0);
                 
                 if (reservationDateTime >= cutoffTime) {
@@ -378,7 +378,7 @@
                     const dateFormatted = formatDateForDisplay(res.date);
                     const resultCard = document.createElement('div');
                     resultCard.className = "p-3 border rounded-lg bg-gray-50 flex justify-between items-center";
-                    resultCard.setAttribute('data-id', res.id);
+                    resultCard.setAttribute('data-id', res.id); 
                     resultCard.innerHTML = `
                         <div>
                             <p class="font-bold">${res.name}</p>
@@ -449,6 +449,7 @@
                             const availableCapacity = MAX_CAPACITY - otherDiners;
 
                             if (newDiners > availableCapacity) {
+                                // Aquí puedes dejar la opción de WhatsApp si solo se usa en el modal de edición
                                 const dateFormatted = formatDateForDisplay(newDate);
                                 const inquiryMsg = encodeURIComponent(`Hola Parrilla Los Nogales, quisiera consultar para modificar mi reserva a ${newDiners} personas el día ${dateFormatted} a las ${newTime}hs, ya que no encontré lugar en la web. ¿Habrá alguna posibilidad?`);
                                 const whatsappBtn = `<a href="https://wa.me/${WHATSAPP_NUMBER}?text=${inquiryMsg}" target="_blank" class="mt-2 inline-block w-full text-center bg-yellow-500 text-black font-bold py-2 px-3 rounded-lg hover:bg-yellow-600 transition text-sm flex items-center justify-center gap-2"><i class="ph ph-whatsapp-logo text-lg"></i>Coordinar modificación</a>`;
@@ -479,7 +480,13 @@
                 }
             } else if (button.classList.contains('delete-res-btn')) {
                 resIdToDelete = id;
-                sourceForDelete = 'search';
+                // Necesitamos el `reservationData` para actualizar los totales visualmente.
+                // Lo obtendremos justo antes de la eliminación si la fuente es 'admin'.
+                if (button.closest('tr')) { // Viene de la tabla de admin
+                    sourceForDelete = 'admin'; 
+                } else { // Viene del modal de búsqueda
+                    sourceForDelete = 'search'; 
+                }
                 openDeleteConfirmation();
             }
         }
@@ -496,27 +503,44 @@
             const docRef = doc(db, "reservations", resIdToDelete);
             
             try {
-                const docSnap = await getDoc(docRef);
                 let reservationData = null;
-                if (docSnap.exists()) {
-                    reservationData = docSnap.data();
+                // Si la eliminación es desde el panel de administración, necesitamos los datos de la reserva
+                // para actualizar los totales de comensales sin recargar.
+                if (sourceForDelete === 'admin') {
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        reservationData = docSnap.data();
+                    }
                 }
 
                 await deleteDoc(docRef);
 
-                if (reservationData && sourceForDelete === 'search') {
-                    const dateFormatted = formatDateForDisplay(reservationData.date);
-                    const message = `AVISO DE CANCELACIÓN\n\nSe ha cancelado la siguiente reserva:\n\n*Cliente:* ${reservationData.name}\n*Fecha:* ${dateFormatted}\n*Hora:* ${reservationData.time} hs\n*Personas:* ${reservationData.diners}`;
-                    const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
-                    window.open(whatsappUrl, '_blank');
-                }
-
+                // Actualización visual en el DOM
                 if (sourceForDelete === 'admin') {
-                    const dateFilterValue = getEl('dateFilter').value;
-                    const periodSelectorValue = getEl('periodSelector').value;
-                    const dateRangeStartValue = getEl('dateRangeStart').value;
-                    const dateRangeEndValue = getEl('dateRangeEnd').value;
-                    fetchAdminReservations(dateFilterValue, periodSelectorValue, dateRangeStartValue, dateRangeEndValue);
+                    const rowToDelete = document.querySelector(`#reservationsTableBody tr[data-id="${resIdToDelete}"]`);
+                    if (rowToDelete && reservationData) { // Asegúrate de que `reservationData` exista
+                        // Actualiza los totales de comensales sin recargar la página
+                        const dinersRemoved = reservationData.diners;
+                        const turnRemoved = getTurn(reservationData.date, reservationData.time).turnName;
+
+                        const totalDinersPeriodEl = getEl('totalDinersPeriod');
+                        totalDinersPeriodEl.textContent = parseInt(totalDinersPeriodEl.textContent) - dinersRemoved;
+
+                        if (turnRemoved === 'Almuerzo') {
+                            const totalDinersLunchEl = getEl('totalDinersLunch');
+                            totalDinersLunchEl.textContent = parseInt(totalDinersLunchEl.textContent) - dinersRemoved;
+                        } else if (turnRemoved === 'Cena') {
+                            const totalDinersDinnerEl = getEl('totalDinersDinner');
+                            totalDinersDinnerEl.textContent = parseInt(totalDinersDinnerEl.textContent) - dinersRemoved;
+                        }
+                        
+                        rowToDelete.remove(); // Elimina la fila de la tabla
+                        
+                        // Si no quedan reservas, muestra el mensaje correspondiente
+                        if (getEl('reservationsTableBody').children.length === 0) {
+                            getEl('reservationsTableBody').innerHTML = '<tr><td colspan="7" class="text-center py-4">No hay reservas para el período seleccionado.</td></tr>';
+                        }
+                    }
                 } else if (sourceForDelete === 'search') {
                     const resultsContainer = getEl('search-results-container');
                     const cardToDelete = resultsContainer.querySelector(`[data-id="${resIdToDelete}"]`);
@@ -527,6 +551,9 @@
                         getEl('search-message').textContent = 'No se encontraron más reservas con ese número.';
                     }
                 }
+                
+                // La lógica de envío de WhatsApp ha sido eliminada.
+
             } catch (error) {
                 console.error("Error al eliminar la reserva:", error);
                 alert("Hubo un error al intentar eliminar la reserva.");
@@ -569,7 +596,7 @@
                 const button = e.target.closest('.delete-res-btn');
                 if (button) {
                     resIdToDelete = button.dataset.id;
-                    sourceForDelete = 'admin';
+                    sourceForDelete = 'admin'; // Indica que la eliminación proviene de la tabla de administración
                     openDeleteConfirmation();
                 }
             });
@@ -744,7 +771,7 @@
                 } else {
                     reservations.forEach(res => {
                         const row = `
-                            <tr>
+                            <tr data-id="${res.id}"> 
                                 <td data-label="Nombre" class="px-6 py-3 font-medium text-gray-900 whitespace-nowrap">${res.name}</td>
                                 <td data-label="Teléfono" class="px-6 py-3">${res.phone}</td>
                                 <td data-label="Fecha" class="px-6 py-3">${formatDateForDisplay(res.date)}</td>
@@ -765,7 +792,7 @@
                 const lunchTurnTitleEl = getEl('lunchTurnTitle'); 
                 const dinnerTurnTitleEl = getEl('dinnerTurnTitle'); 
                 const turnTotalsContainerEl = getEl('turnTotalsContainer'); 
-
+                
                 if (lunchTurnTitleEl && dinnerTurnTitleEl && turnTotalsContainerEl) {
                     getEl('totalDinersLunch').textContent = lunchDiners;
                     getEl('totalDinersDinner').textContent = dinnerDiners;
